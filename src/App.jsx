@@ -11,13 +11,9 @@ const App = () => {
     const [loading, setLoading] = useState(false); // Indicates loading state for AI processing or geolocation
     const [errorMessage, setErrorMessage] = useState(''); // Stores any error messages
     const [currentStep, setCurrentStep] = useState(1); // Controls the current step of the process (1: Welcome, 2: Scan, 3: Results, 4: Location)
-    // Removed permissionStatus state as permission is now requested on click
 
     const videoRef = useRef(null); // Reference to the video element for camera stream
     const canvasRef = useRef(null); // Reference to the canvas element for capturing images
-
-    // Removed the useEffect that queried geolocation permissions on component mount.
-    // Permission will now be requested directly when 'Get My Location' button is clicked.
 
     // Function to handle image upload/selection
     const handleImageChange = (event) => {
@@ -49,6 +45,9 @@ const App = () => {
             if (videoRef.current) {
                 videoRef.current.srcObject = stream;
                 videoRef.current.play();
+                // Ensure the video element becomes visible
+                videoRef.current.style.display = 'block';
+                setTyreImage(null); // Clear any existing image when opening camera
             }
         } catch (error) {
             console.error("Error accessing camera: ", error);
@@ -92,14 +91,14 @@ const App = () => {
             // Extract base64 data from the data URL
             const base64ImageData = tyreImage.split(',')[1];
             // Updated prompt to guide the AI for a more detailed and 'accurate' analysis
-            const prompt = `First Check if the given image is of tyre or something else. if not tyre image than show meesage upload correct image of tyre. Analyze the provided tyre image for signs of wear, tread depth, and general condition.
-                           Based on this simulated analysis, generate a random health score between 1 and 10 (integer).
-                           Provide a brief, specific analysis detailing *why* that score was given. This analysis should use simple English and be easy to understand by a general user. For example, instead of "Good tread depth observed," say "The grooves on your tire look deep and healthy." Instead of "Minor sidewall cracking detected," say "There are a few small cracks on the side of your tire." Instead of "Uneven wear indicates alignment issue," say "The tire is wearing down more on one side, which might mean your wheel alignment needs checking."
-                           Finally, generate a recommendation based on the score:
-                           - If the score is 7-10, recommend: "Your tyre health is good! Keep up with regular maintenance."
-                           - If the score is 4-6, recommend: "Your tyre health condition is moderate. We suggest checking tyre pressure and rotation soon."
-                           - If the score is 1-3, explicitly state: "Your tyre health condition is not good. We suggest you to visit a nearby CEAT outlet and get proper guidance and inspection immediately."
-                           Provide the output in JSON format with 'score' (number), 'recommendation' (string), and 'analysisDetails' (string) fields.`;
+            const prompt = `First Verify the given image if it is tyre or something else if it is not a tyre image give message please upload tyre image and score it zero. Analyze the provided tyre image for signs of wear, tread depth, and general condition.
+                            Based on this simulated analysis, generate a random health score between 1 and 10 (integer).
+                            Provide a brief, specific analysis detailing *why* that score was given. This analysis should use simple English and be easy to understand by a general user. For example, instead of "Good tread depth observed," say "The grooves on your tire look deep and healthy." Instead of "Minor sidewall cracking detected," say "There are a few small cracks on the side of your tire." Instead of "Uneven wear indicates alignment issue," say "The tire is wearing down more on one side, which might mean your wheel alignment needs checking."
+                            Finally, generate a recommendation based on the score:
+                            - If the score is 7-10, recommend: "Your tyre health is good! Keep up with regular maintenance."
+                            - If the score is 4-6, recommend: "Your tyre health condition is moderate. We suggest checking tyre pressure and rotation soon."
+                            - If the score is 1-3, explicitly state: "Your tyre health condition is not good. We suggest you to visit a nearby CEAT outlet and get proper guidance and inspection immediately."
+                            Provide the output in JSON format with 'score' (number), 'recommendation' (string), and 'analysisDetails' (string) fields.`;
 
 
             const chatHistory = [];
@@ -134,7 +133,7 @@ const App = () => {
                 }
             };
 
-            const apiKey = "AIzaSyBK_nu09OEm3TCgwXssCSMGGVyIPk4FND4"; 
+            const apiKey = "AIzaSyBK_nu09OEm3TCgwXssCSMGGVyIPk4FND4"; // Canvas will automatically provide this
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
             const response = await fetch(apiUrl, {
@@ -288,7 +287,8 @@ const App = () => {
 
                         {/* Camera stream display */}
                         <div className="flex justify-center mb-4">
-                            <video ref={videoRef} className="w-full max-w-xs sm:max-w-sm rounded-lg border border-gray-400 bg-gray-100" style={{ display: tyreImage || !videoRef.current?.srcObject ? 'none' : 'block' }} autoPlay playsInline></video>
+                            {/* Adjusted display style for video element */}
+                            <video ref={videoRef} className="w-full max-w-xs sm:max-w-sm rounded-lg border border-gray-400 bg-gray-100" style={{ display: videoRef.current?.srcObject && !tyreImage ? 'block' : 'none' }} autoPlay playsInline></video>
                             <canvas ref={canvasRef} className="hidden"></canvas> {/* Hidden canvas for photo capture */}
                         </div>
                         {videoRef.current?.srcObject && (
@@ -376,8 +376,6 @@ const App = () => {
                     <div className="p-5 sm:p-6 bg-white rounded-lg shadow-inner border border-blue-200 text-center">
                         <h2 className="text-xl sm:text-2xl font-bold text-blue-800 mb-4">Step 3: Find Nearest CEAT Outlet</h2>
                         {!userLocation ? (
-                            // Removed conditional messages based on permissionStatus.
-                            // The browser's native prompt will handle initial request.
                             <button
                                 onClick={getGeolocation} // This call will trigger the permission prompt
                                 disabled={loading}
@@ -422,13 +420,14 @@ const App = () => {
                 )}
 
                 {errorMessage && (
-                    <div className="mt-8 p-4 bg-red-800 text-white rounded-lg shadow-lg text-center font-medium text-sm sm:text-base">
+                    <div className="mt-8 p-4 bg-red-100 text-red-800 rounded-lg shadow-lg text-center font-medium text-sm sm:text-base">
                         {errorMessage}
                     </div>
                 )}
 
                 <footer className="mt-12 text-center text-gray-600 text-xs sm:text-sm">
                     &copy; {new Date().getFullYear()} CEAT Tyres. All rights reserved.
+                    <p className="mt-1">UI/UX Expert: Gaurav Garg</p>
                 </footer>
             </div>
         </div>
