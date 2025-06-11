@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 
 // Main App component
 const App = () => {
     // State variables
-    const [tyreImage, setTyreImage] = useState(null); // Stores the uploaded tyre image
+    const [tyreImage, setTyreImage] = useState(null); // Stores the uploaded or captured tyre image
     const [healthScore, setHealthScore] = useState(null); // Stores the simulated health score
     const [recommendation, setRecommendation] = useState(''); // Stores the simulated recommendation
     const [analysisDetails, setAnalysisDetails] = useState(''); // Stores detailed analysis from AI
@@ -11,6 +11,7 @@ const App = () => {
     const [loading, setLoading] = useState(false); // Indicates loading state for AI processing or geolocation
     const [errorMessage, setErrorMessage] = useState(''); // Stores any error messages
     const [currentStep, setCurrentStep] = useState(1); // Controls the current step of the process (1: Welcome, 2: Scan, 3: Results, 4: Location)
+    const [isCameraActive, setIsCameraActive] = useState(false); // New state to control camera visibility
 
     const videoRef = useRef(null); // Reference to the video element for camera stream
     const canvasRef = useRef(null); // Reference to the canvas element for capturing images
@@ -26,32 +27,43 @@ const App = () => {
                 setRecommendation(''); // Reset recommendation
                 setAnalysisDetails(''); // Reset analysis details
                 setErrorMessage(''); // Clear previous errors
-                // Automatically close camera if an image is uploaded
+
+                // Stop the camera stream if an image is uploaded
                 if (videoRef.current && videoRef.current.srcObject) {
                     const tracks = videoRef.current.srcObject.getTracks();
                     tracks.forEach(track => track.stop());
                     videoRef.current.srcObject = null;
+                    setIsCameraActive(false); // Turn off camera active state
                 }
             };
             reader.readAsDataURL(file); // Read file as data URL
         }
     };
 
-    // Function to start the camera stream
+    // Function to start the camera stream, prioritizing the rear camera
     const startCamera = async () => {
         setErrorMessage('');
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            // Try to get the rear camera (environment) first
+            let stream = null;
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { exact: 'environment' } } });
+            } catch (envError) {
+                console.warn("Rear camera not found or accessible, falling back to front camera:", envError);
+                // Fallback to front camera (user) if environment camera fails
+                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+            }
+
             if (videoRef.current) {
                 videoRef.current.srcObject = stream;
                 videoRef.current.play();
-                // Ensure the video element becomes visible
-                videoRef.current.style.display = 'block';
                 setTyreImage(null); // Clear any existing image when opening camera
+                setIsCameraActive(true); // Set camera active state to true
             }
         } catch (error) {
             console.error("Error accessing camera: ", error);
-            setErrorMessage("Could not access camera. Please ensure permissions are granted in your browser settings.");
+            setErrorMessage("Could not access camera. Please ensure permissions are granted and no other application is using it. " + error.message);
+            setIsCameraActive(false); // Ensure camera is not active if there's an error
         }
     };
 
@@ -74,6 +86,7 @@ const App = () => {
                 const tracks = videoRef.current.srcObject.getTracks();
                 tracks.forEach(track => track.stop());
                 videoRef.current.srcObject = null;
+                setIsCameraActive(false); // Turn off camera active state
             }
         }
     };
@@ -224,11 +237,13 @@ const App = () => {
         setLoading(false);
         setErrorMessage('');
         setCurrentStep(1);
+        // Stop the camera stream if active
         if (videoRef.current && videoRef.current.srcObject) {
             const tracks = videoRef.current.srcObject.getTracks();
             tracks.forEach(track => track.stop());
             videoRef.current.srcObject = null;
         }
+        setIsCameraActive(false); // Ensure camera is off on reset
     };
 
     return (
@@ -287,11 +302,11 @@ const App = () => {
 
                         {/* Camera stream display */}
                         <div className="flex justify-center mb-4">
-                            {/* Adjusted display style for video element */}
-                            <video ref={videoRef} className="w-full max-w-xs sm:max-w-sm rounded-lg border border-gray-400 bg-gray-100" style={{ display: videoRef.current?.srcObject && !tyreImage ? 'block' : 'none' }} autoPlay playsInline></video>
+                            <video ref={videoRef} className="w-full max-w-xs sm:max-w-sm rounded-lg border border-gray-400 bg-gray-100" style={{ display: isCameraActive ? 'block' : 'none' }} autoPlay playsInline></video>
                             <canvas ref={canvasRef} className="hidden"></canvas> {/* Hidden canvas for photo capture */}
                         </div>
-                        {videoRef.current?.srcObject && (
+                        {/* Only show Capture Photo button when camera is active */}
+                        {isCameraActive && (
                             <div className="flex justify-center mb-4">
                                 <button
                                     onClick={capturePhoto}
@@ -301,7 +316,6 @@ const App = () => {
                                 </button>
                             </div>
                         )}
-
 
                         {tyreImage && (
                             <div className="mt-4 flex justify-center">
@@ -427,7 +441,7 @@ const App = () => {
 
                 <footer className="mt-12 text-center text-gray-600 text-xs sm:text-sm">
                     &copy; {new Date().getFullYear()} CEAT Tyres. All rights reserved.
-                   
+                    
                 </footer>
             </div>
         </div>
