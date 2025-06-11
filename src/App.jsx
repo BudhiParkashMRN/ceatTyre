@@ -427,7 +427,7 @@ const App = () => {
 
                 <footer className="mt-12 text-center text-gray-600 text-xs sm:text-sm">
                     &copy; {new Date().getFullYear()} CEAT Tyres. All rights reserved.
-                    <p className="mt-1">UI/UX Expert: Gaurav Garg</p>
+                   
                 </footer>
             </div>
         </div>
